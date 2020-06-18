@@ -1,15 +1,22 @@
 # coding: utf-8
 
-import sys, os, time
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QLabel, QMessageBox, QPlainTextEdit, QProgressBar
+import sys, os, time, datetime, ctypes
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLineEdit, QLabel, QMessageBox, QPlainTextEdit
 from PyQt5.QtGui import QIcon
 from PyQt5 import QtGui
 from PyQt5.QtCore import pyqtSlot
-from threading import Thread, Lock
+from threading import Thread
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import Select
 import urllib.request
+from ctypes import wintypes
+
+lpBuffer = wintypes.LPWSTR()
+AppUserModelID = ctypes.windll.shell32.GetCurrentProcessExplicitAppUserModelID
+AppUserModelID(ctypes.cast(ctypes.byref(lpBuffer), wintypes.LPWSTR))
+appid = lpBuffer.value
+ctypes.windll.kernel32.LocalFree(lpBuffer)
 
 if os.path.exists('C:/Program Files/ConsultaNumero/') == False:
    os.system('mkdir "C:/Program Files/ConsultaNumero/"')
@@ -43,22 +50,16 @@ def window():
    LogInput.setPlaceholderText("logs")
    LogInput.setReadOnly(True)
 
-   global ProgressBar
-   ProgressBar = QProgressBar(widget)
-   ProgressBar.setGeometry(0, 0, 290, 20)
-   ProgressBar.move(10, 315)
-
    global ExecutarButton
    ExecutarButton = QPushButton(widget)
    ExecutarButton.setText("Executar")
-   ExecutarButton.move(10,350)
+   ExecutarButton.move(10,310)
    ExecutarButton.setFixedWidth(280)
    ExecutarButton.clicked.connect(run_clicked)
 
-   widget.setGeometry(50,50,300,455)
+   widget.setGeometry(50,50,300,350)
    widget.setWindowTitle("Consulta Número")
-   widget.setFixedSize(300,390)
-   widget.redrawLock = Lock()
+   widget.setFixedSize(300,350)
    widget.setWindowIcon(QtGui.QIcon('C:/Program Files/ConsultaNumero/icone.ico'))
    widget.show()
    sys.exit(app.exec_())
@@ -90,8 +91,6 @@ def run_clicked():
 
       return
 
-   ProgressBar.setMaximum(len(lista.splitlines()))
-
    ThreadRun = Thread(target=Run)
    ThreadRun.start()
 
@@ -100,8 +99,7 @@ def Run():
    LogInput.clear()
    lista = MultiInput.toPlainText()
    ExecutarButton.setEnabled(False)
-   ProgressBar.setValue(0)
-   progresso = 0
+   Progress = 0
 
    options = Options()
    options.headless = False
@@ -112,26 +110,25 @@ def Run():
 
    for numero in lista.splitlines():
       try:
-         NumberInput = browser.find_element_by_name('telefone')
-         NumberInput.clear()
-         NumberInput.send_keys(numero)
-         time.sleep(2)
-         SearchButton = browser.find_element_by_id('consultar').click()
-         time.sleep(2)
-         Operadora = browser.find_element_by_class_name('dados').text
-         Estado = browser.find_element_by_class_name('estado').text
-         LogInput.insertPlainText(Operadora.split('-')[0] + "- " + Estado + "\n")
-         progresso += 1
+      	ExecutarButton.setText(str(Progress) + " de " + str(len(lista.splitlines())))
+      	NumberInput = browser.find_element_by_name('telefone')
+      	NumberInput.clear()
+      	NumberInput.send_keys(numero)
+      	time.sleep(2)
+      	SearchButton = browser.find_element_by_id('consultar').click()
+      	time.sleep(4)
+      	Operadora = browser.find_element_by_class_name('dados').text
+      	Estado = browser.find_element_by_class_name('cidade').text
+      	LogInput.insertPlainText(" ".join(str(x) for x in Operadora.split('-')[:-1]) + ", " + str(Estado.split('-')[0]) + "\n")
 
-      except:
-        progresso += 1
-        LogInput.insertPlainText("Erro: " + str(numero) + "\n")
+      except Exception as error:
+      	print(error)
+      	LogInput.insertPlainText("Erro, " + str(numero) + "\n")
 
-      with widget.redrawLock:
-      	ProgressBar.setValue(progresso)
-      
+      Progress += 1
       continue
-      
+
+   ExecutarButton.setText("Executar")
    ExecutarButton.setEnabled(True)
    browser.close()
 
